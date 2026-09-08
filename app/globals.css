@@ -1,0 +1,108 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-jakarta: 'Plus Jakarta Sans', sans-serif;
+  --font-inter: 'Inter', sans-serif;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #bfdbfe transparent;
+}
+*::-webkit-scrollbar {
+  width: 4px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #bfdbfe;
+  border-radius: 4px;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: #f8faff;
+  color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.heading-font {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s ease forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s ease forwards;
+}
+
+.hero-gradient {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 40%, #bfdbfe 100%);
+}
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(37, 99, 235, 0.12);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: white;
+  transition: all 0.2s ease;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+}
+
+.glass-card {
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(219,234,254,0.6);
+}
+
+.stat-gradient {
+  background: linear-gradient(135deg, #1e40af, #2563eb);
+}
+
+.section-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+}
+
+input, select, textarea {
+  font-family: 'Inter', sans-serif;
+}
+
+.page-enter {
+  animation: fadeIn 0.4s ease forwards;
+}

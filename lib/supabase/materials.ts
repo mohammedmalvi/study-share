@@ -88,9 +88,18 @@ export async function createMaterial(
     return { data: null, error: "Supabase is not configured. Please set up environment variables." };
   }
 
+  let userId = material.user_id;
+  if (!userId) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return { data: null, error: "Please sign in to upload materials." };
+    }
+    userId = user.id;
+  }
+
   const { data, error } = await supabase
     .from("materials")
-    .insert(material)
+    .insert({ ...material, user_id: userId })
     .select()
     .single();
 

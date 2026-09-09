@@ -7,6 +7,7 @@ import { fetchSubjects } from "@/lib/supabase/subjects";
 import { fetchCategories } from "@/lib/supabase/categories";
 import { uploadPdf, getFileUrl } from "@/lib/supabase/storage";
 import { createMaterial } from "@/lib/supabase/materials";
+import { supabase } from "@/lib/supabase/client";
 import type { Subject, Category } from "@/types/database";
 
 const COURSES = ["BCA", "MCA", "BSc CS", "BTech"];
@@ -61,7 +62,19 @@ export default function UploadPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) { showToast("Please login to upload materials", "error"); navigateTo("/login"); return; }
+
+    if (!supabase) {
+      alert("Please sign in to upload materials.");
+      return;
+    }
+
+    const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !authUser) {
+      alert("Please sign in to upload materials.");
+      return;
+    }
+
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setUploading(true);
@@ -91,7 +104,7 @@ export default function UploadPage() {
       file_size: file!.size,
       subject_id: form.subject_id,
       category_id: form.category_id,
-      user_id: user.id,
+      user_id: authUser.id,
       status: "approved",
       is_public: true,
       course: form.course,

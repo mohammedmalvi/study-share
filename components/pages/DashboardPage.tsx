@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 export default function DashboardPage() {
-  const { navigateTo, user, showToast, favorites } = useApp();
+  const { navigateTo, user, showToast, favorites, isAuthLoading } = useApp();
   const [activeTab, setActiveTab] = useState<"overview" | "uploads" | "favorites" | "downloads">("overview");
 
   const [userUploads, setUserUploads] = useState<Material[]>([]);
@@ -43,6 +43,18 @@ export default function DashboardPage() {
     }
     loadDashboard();
   }, [user, favorites]);
+
+  // Show loading spinner while auth state is being resolved (e.g. after signup)
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f8faff] animate-fade-in">
+        <div className="text-center p-8">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-500">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (

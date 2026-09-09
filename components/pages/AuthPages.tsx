@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Mail, Lock, User, Eye, EyeOff, CheckCircle, BookOpen, ArrowLeft, ArrowRight } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { signIn, signUp, resetPassword, signInWithGoogle } from "@/lib/supabase/auth";
@@ -12,6 +13,17 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Show error from auth callback if present (e.g., failed OAuth)
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const callbackError = searchParams.get("error");
+    if (callbackError === "auth_callback_failed") {
+      showToast("Google sign-in failed. Please try again.", "error");
+    } else if (callbackError === "server_config") {
+      showToast("Server configuration error. Please contact support.", "error");
+    }
+  }, [searchParams, showToast]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) { showToast("Please fill in all fields", "error"); return; }
@@ -20,7 +32,15 @@ export function LoginPage() {
     const { error } = await signIn(email, password);
     
     if (error) {
-      showToast(error.message, "error");
+      // Surface specific Supabase error messages
+      const msg = error.message?.toLowerCase() ?? "";
+      if (msg.includes("email not confirmed")) {
+        showToast("Please confirm your email before logging in. Check your inbox.", "error");
+      } else if (msg.includes("invalid login credentials")) {
+        showToast("Invalid email or password. Please try again.", "error");
+      } else {
+        showToast(error.message, "error");
+      }
       setLoading(false);
       return;
     }
@@ -105,9 +125,9 @@ export function SignUpPage() {
       return;
     }
     
-    showToast("Account created successfully! Welcome to StudyShare.");
-    navigateTo("/dashboard");
-    setLoading(false);
+    // Hard redirect to force full page reload — ensures AppContext
+    // re-initializes and picks up the active session immediately
+    window.location.href = "/dashboard";
   };
 
   const handleGoogleSignIn = async () => {
@@ -146,7 +166,7 @@ export function SignUpPage() {
             </div>
             <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">Password *</label><div className="relative"><Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type={showPassword ? "text" : "password"} placeholder="Min 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 text-slate-700" /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></div>
             <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">Confirm Password *</label><div className="relative"><Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="password" placeholder="Repeat password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 text-slate-700" /></div></div>
-            <button type="submit" disabled={loading} className="w-full btn-primary py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-60">{loading ? "Creating account..." : <><span>Create Account</span><ArrowRight size={16} /></>}</button>
+            <button type="submit" disabled={loading} className="w-full btn-primary py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-60">{loading ? (<><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /><span>Creating account...</span></>) : (<><span>Create Account</span><ArrowRight size={16} /></>)}</button>
           </form>
           <p className="text-center text-sm text-slate-500 mt-6">Already have an account? <button onClick={() => navigateTo("/login")} className="text-blue-600 font-semibold hover:text-blue-800">Log In</button></p>
         </div>

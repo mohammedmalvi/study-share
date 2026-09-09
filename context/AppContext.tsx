@@ -10,6 +10,7 @@ interface AppContextType {
   navigateTo: (path: string) => void;
   user: AppUser | null;
   setUser: (u: AppUser | null) => void;
+  isAuthLoading: boolean;
   toasts: Toast[];
   showToast: (message: string, type?: Toast["type"]) => void;
   favorites: string[];
@@ -62,34 +63,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const loadProfile = async (userId: string) => {
+    const formatUser = (u: any): AppUser => ({
+      id: u.id,
+      name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "User",
+      email: u.email || "",
+      course: u.user_metadata?.course || "General",
+      semester: u.user_metadata?.semester || "1st Semester",
+      role: u.user_metadata?.role || "student",
+    });
+
+    const loadProfile = async (userId: string, sessionUser: any) => {
       try {
         const { data: profile } = await supabase!.from("profiles").select("*").eq("id", userId).single();
         if (profile) {
           setUser(profile as AppUser);
+        } else if (sessionUser) {
+          setUser(formatUser(sessionUser));
         }
         const favs = await getUserFavorites(userId);
         setFavorites(favs);
       } catch (err) {
         console.error("Error loading profile", err);
+        if (sessionUser) {
+          setUser(formatUser(sessionUser));
+        }
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
+    // 1. Get initial session on app load
     supabase!.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        loadProfile(session.user.id);
+        setUser(formatUser(session.user));
+        loadProfile(session.user.id, session.user);
       } else {
+        setUser(null);
         setIsLoading(false);
       }
     });
 
+    // 2. Listen for session changes (Login, Signup, OAuth, Logout)
     const { data: { subscription } } = supabase!.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        loadProfile(session.user.id);
+        setUser(formatUser(session.user));
+        loadProfile(session.user.id, session.user);
       } else {
         setUser(null);
         setFavorites([]);
+        setIsLoading(false);
       }
     });
 
@@ -100,7 +122,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider
-      value={{ navigateTo, user, setUser, toasts, showToast, favorites, toggleFavorite }}
+      value={{ navigateTo, user, setUser, isAuthLoading: isLoading, toasts, showToast, favorites, toggleFavorite }}
     >
       {children}
     </AppContext.Provider>

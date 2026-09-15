@@ -111,7 +111,7 @@ export default function HomePage() {
             </div>
             <div className="hidden lg:flex items-center justify-center">
               <img
-                src="/hero-cloud.png"
+                src="/assets/cloud-hero.png"
                 alt="StudyShare Cloud Storage"
                 className="w-full h-auto max-w-xl rounded-2xl shadow-lg object-cover"
               />

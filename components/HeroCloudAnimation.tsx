@@ -218,10 +218,10 @@ export default function HeroCloudAnimation() {
     <div className="relative w-full h-full select-none" style={{ minHeight: "420px" }}>
       {/* Base static cloud network image */}
       <img
-        src="/assets/cloud-hero.png"
-        alt="Cloud-based study material ecosystem — files and folders flowing into a central cloud"
-        className="w-full h-[420px] object-cover object-center"
-        style={{ display: "block" }}
+        src="/hero-cloud.png"
+        alt="Cloud Study Materials Ecosystem"
+        className="w-full h-full object-cover rounded-2xl shadow-md"
+        style={{ display: "block", minHeight: "420px" }}
         draggable={false}
       />
       {/* Animation canvas overlay */}

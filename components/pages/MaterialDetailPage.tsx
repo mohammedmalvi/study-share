@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Star, Download, Heart, Flag, User, Calendar, FileType, HardDrive, BookOpen, ArrowLeft, Share2 } from "lucide-react";
+import { Star, Download, Eye, Heart, Flag, User, Calendar, FileType, HardDrive, BookOpen, ArrowLeft, Share2 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import MaterialCard from "@/components/MaterialCard";
-import { fetchMaterials } from "@/lib/supabase/materials";
+import PDFPreviewModal, { getPublicPdfUrl } from "@/components/PDFPreviewModal";
+import { fetchMaterials, updateMaterial } from "@/lib/supabase/materials";
+import { supabase } from "@/lib/supabase/client";
 import type { Material } from "@/types/database";
 
 export default function MaterialDetailPage({ materialId }: { materialId: string }) {
@@ -13,8 +15,13 @@ export default function MaterialDetailPage({ materialId }: { materialId: string 
   const [material, setMaterial] = useState<Material | null>(null);
   const [related, setRelated] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [userRating, setUserRating] = useState<number>(0);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [reviewText, setReviewText] = useState<string>("");
 
   useEffect(() => {
+    let isMounted = true;
     async function loadData() {
       setLoading(true);
       // Fetch this material
@@ -29,10 +36,38 @@ export default function MaterialDetailPage({ materialId }: { materialId: string 
           .slice(0, 3);
         setRelated(relatedMaterials);
       }
-      setLoading(false);
+      if (isMounted) setLoading(false);
     }
     loadData();
-  }, [materialId]);
+
+    // Supabase Real-time: if this material or related ones are deleted, update state immediately
+    let channel: any;
+    if (supabase) {
+      channel = supabase
+        .channel(`material_detail_${materialId}`)
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'materials' },
+          (payload: any) => {
+            const deletedId = payload.old?.id;
+            if (!deletedId) return;
+            if (deletedId === materialId) {
+              // Current material was deleted — navigate away
+              navigateTo('/materials');
+            } else {
+              // A related material was deleted — remove from related list
+              setRelated((prev) => prev.filter((m) => m.id !== deletedId));
+            }
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      isMounted = false;
+      if (supabase && channel) supabase.removeChannel(channel);
+    };
+  }, [materialId, navigateTo]);
 
   if (loading) {
     return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">Loading material...</div>;
@@ -62,11 +97,22 @@ export default function MaterialDetailPage({ materialId }: { materialId: string 
     day: 'numeric'
   });
 
+  const handleViewPDF = () => {
+    if (!user) {
+      navigateTo("/login");
+      return;
+    }
+    setIsPreviewOpen(true);
+  };
+
   const handleDownload = () => {
-    if (!user) { showToast("Please login to download materials", "error"); return; }
-    // Ideally we would trigger a real download using Supabase storage here
-    window.open(material.file_url, '_blank');
+    if (!user) {
+      navigateTo("/login");
+      return;
+    }
     showToast(`Downloading "${material.title}"...`);
+    const publicUrl = getPublicPdfUrl(material);
+    window.open(publicUrl || material.file_url, '_blank');
   };
 
   const handleFav = () => {
@@ -80,6 +126,29 @@ export default function MaterialDetailPage({ materialId }: { materialId: string 
     showToast("Report submitted. We'll review this material.", "info");
   };
 
+  const handleRatingSubmit = async () => {
+    if (!user) {
+      navigateTo("/login");
+      return;
+    }
+    if (userRating === 0) {
+      showToast("Please select a star rating first", "error");
+      return;
+    }
+
+    const newRating = userRating;
+    // Update material rating in local state immediately
+    setMaterial((prev) => prev ? { ...prev, rating: newRating } : prev);
+    
+    // Update material rating in DB without saving text review anywhere
+    if (material) {
+      await updateMaterial(material.id, { rating: newRating });
+    }
+
+    setReviewText("");
+    showToast(`Thank you for rating! Updated rating to ${newRating} stars.`, "success");
+  };
+
   const typeColor: Record<string, string> = {
     Notes: "bg-blue-100 text-blue-700",
     PDF: "bg-violet-100 text-violet-700",
@@ -90,77 +159,132 @@ export default function MaterialDetailPage({ materialId }: { materialId: string 
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-fade-in">
-      <button onClick={() => navigateTo("/materials")} className="flex items-center gap-2 text-sm text-slate-500 hover:text-blue-700 mb-6 transition-colors font-medium">
-        <ArrowLeft size={16} /> Back to Materials
-      </button>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-100 mb-6 h-64 flex items-center justify-center shadow-sm">
-            {material.thumbnail ? (
-              <img src={material.thumbnail} alt="Material thumbnail" className="absolute inset-0 w-full h-full object-cover" />
-            ) : (
-              <img src="https://images.unsplash.com/photo-1769794371055-54436b54577e?w=800&h=400&fit=crop&auto=format" alt="Study material preview" className="absolute inset-0 w-full h-full object-cover opacity-20" />
-            )}
-            {!material.thumbnail && (
-              <div className="relative text-center">
-                <div className="w-20 h-20 bg-white/80 backdrop-blur rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md"><BookOpen size={36} className="text-blue-600" /></div>
-                <div className={`inline-block text-sm font-semibold px-3 py-1 rounded-full ${typeColor[typeName] ?? "bg-slate-100 text-slate-600"}`}>{typeName}</div>
+    <>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-fade-in">
+        <button onClick={() => navigateTo("/materials")} className="flex items-center gap-2 text-sm text-slate-500 hover:text-blue-700 mb-6 transition-colors font-medium">
+          <ArrowLeft size={16} /> Back to Materials
+        </button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <div
+              onClick={handleViewPDF}
+              className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-100 mb-6 h-64 flex items-center justify-center shadow-sm cursor-pointer group"
+            >
+              {material.thumbnail ? (
+                <img src={material.thumbnail} alt="Material thumbnail" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              ) : (
+                <img src="https://images.unsplash.com/photo-1769794371055-54436b54577e?w=800&h=400&fit=crop&auto=format" alt="Study material preview" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:scale-105 transition-transform duration-500" />
+              )}
+              <div className="absolute inset-0 bg-slate-900/30 group-hover:bg-slate-900/40 transition-colors flex items-center justify-center">
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleViewPDF(); }}
+                  className="bg-white/90 backdrop-blur px-5 py-2.5 rounded-xl font-semibold text-slate-800 text-sm shadow-lg flex items-center gap-2 hover:bg-white transition-all transform group-hover:scale-105"
+                >
+                  <Eye size={18} className="text-blue-600" /> View PDF Preview
+                </button>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-blue-50 shadow-sm p-6 mb-5">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <h1 className="text-2xl font-extrabold text-slate-900 heading-font leading-tight">{material.title}</h1>
+                <button onClick={handleFav} className={`p-2.5 rounded-xl border transition-all shrink-0 ${isFav ? "bg-rose-50 border-rose-200 text-rose-500" : "border-slate-200 text-slate-400 hover:border-rose-200 hover:text-rose-400"}`}>
+                  <Heart size={20} fill={isFav ? "currentColor" : "none"} />
+                </button>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap mb-5">
+                <div className="flex items-center gap-1">{[1,2,3,4,5].map((i) => (<Star key={i} size={14} className={i <= Math.round(material.rating) ? "text-amber-400" : "text-slate-200"} fill="currentColor" />))}<span className="text-sm font-semibold text-slate-700 ml-1">{material.rating}</span></div>
+                <span className="text-slate-300">•</span>
+                <span className="text-sm text-slate-500">{material.downloads.toLocaleString()} downloads</span>
+                <span className="text-slate-300">•</span>
+                <span className="text-sm text-slate-500">{uploadDate}</span>
+              </div>
+              <p className="text-slate-600 leading-relaxed mb-5">{material.description}</p>
+              {material.tags && material.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">{material.tags.map((tag) => (<span key={tag} className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100 font-medium">#{tag}</span>))}</div>
+              )}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 mb-8">
+              <button onClick={handleViewPDF} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-all shadow-md">
+                <Eye size={18} /> View PDF
+              </button>
+              <button onClick={handleDownload} className="btn-primary flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold shadow-lg">
+                <Download size={18} /> Download PDF
+              </button>
+              <div className="flex gap-2">
+                <button onClick={() => showToast("Link copied to clipboard!", "info")} className="px-4 py-3.5 rounded-xl border border-blue-200 text-blue-700 hover:bg-blue-50 transition-all" title="Share"><Share2 size={18} /></button>
+                <button onClick={handleReport} className="px-4 py-3.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-all" title="Report"><Flag size={18} /></button>
+              </div>
+            </div>
+            {related.length > 0 && (
+              <div><h2 className="text-xl font-extrabold text-slate-900 heading-font mb-5">Related Materials</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{related.map((m) => (<MaterialCard key={m.id} material={m} compact />))}</div>
               </div>
             )}
           </div>
-          <div className="bg-white rounded-2xl border border-blue-50 shadow-sm p-6 mb-5">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <h1 className="text-2xl font-extrabold text-slate-900 heading-font leading-tight">{material.title}</h1>
-              <button onClick={handleFav} className={`p-2.5 rounded-xl border transition-all shrink-0 ${isFav ? "bg-rose-50 border-rose-200 text-rose-500" : "border-slate-200 text-slate-400 hover:border-rose-200 hover:text-rose-400"}`}>
-                <Heart size={20} fill={isFav ? "currentColor" : "none"} />
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-blue-50 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 heading-font mb-4">Material Details</h3>
+              <ul className="space-y-3.5">
+                {[{ icon: BookOpen, label: "Subject", value: subjectName }, { icon: User, label: "Course", value: material.course }, { icon: BookOpen, label: "Semester", value: material.semester }, { icon: User, label: "Uploaded By", value: authorName }, { icon: Calendar, label: "Upload Date", value: uploadDate }, { icon: FileType, label: "Material Type", value: typeName }, { icon: HardDrive, label: "File Size", value: formattedSize }, { icon: Download, label: "Downloads", value: material.downloads.toLocaleString() }].map(({ icon: Icon, label, value }) => (
+                  <li key={label} className="flex items-start gap-3"><div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center shrink-0 mt-0.5"><Icon size={13} className="text-blue-600" /></div><div><div className="text-xs text-slate-500 font-medium">{label}</div><div className="text-sm text-slate-800 font-semibold">{value}</div></div></li>
+                ))}
+              </ul>
+            </div>
+            <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-5 text-white">
+              <h3 className="font-bold heading-font mb-2">Found this helpful?</h3>
+              <p className="text-blue-200 text-sm mb-4">Share your own notes and help fellow students succeed.</p>
+              <button onClick={() => {
+                if (!user) { navigateTo("/login"); return; }
+                navigateTo("/upload");
+              }} className="w-full bg-white text-blue-700 rounded-xl py-2.5 font-semibold text-sm hover:bg-blue-50 transition-all">Upload Your Notes</button>
+            </div>
+            <div className="bg-white rounded-2xl border border-blue-50 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 heading-font mb-3">Rate this Material</h3>
+              <div className="flex items-center gap-2 mb-3">
+                {[1, 2, 3, 4, 5].map((star) => {
+                  const activeRating = hoverRating || userRating || Math.round(material.rating);
+                  return (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setUserRating(star)}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      className="text-2xl hover:scale-110 transition-transform focus:outline-none"
+                      title={`${star} Star${star > 1 ? "s" : ""}`}
+                    >
+                      {star <= activeRating ? "⭐" : "☆"}
+                    </button>
+                  );
+                })}
+                {userRating > 0 && (
+                  <span className="text-xs font-semibold text-amber-600 ml-1">
+                    {userRating} / 5
+                  </span>
+                )}
+              </div>
+              <textarea
+                placeholder="Write a short review..."
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value)}
+                rows={3}
+                className="w-full text-sm border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none text-slate-700"
+              />
+              <button
+                onClick={handleRatingSubmit}
+                className="mt-2 w-full btn-primary py-2.5 rounded-xl font-semibold text-sm"
+              >
+                Submit Review
               </button>
             </div>
-            <div className="flex items-center gap-2 flex-wrap mb-5">
-              <div className="flex items-center gap-1">{[1,2,3,4,5].map((i) => (<Star key={i} size={14} className={i <= Math.round(material.rating) ? "text-amber-400" : "text-slate-200"} fill="currentColor" />))}<span className="text-sm font-semibold text-slate-700 ml-1">{material.rating}</span></div>
-              <span className="text-slate-300">•</span>
-              <span className="text-sm text-slate-500">{material.downloads.toLocaleString()} downloads</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-sm text-slate-500">{uploadDate}</span>
-            </div>
-            <p className="text-slate-600 leading-relaxed mb-5">{material.description}</p>
-            {material.tags && material.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2">{material.tags.map((tag) => (<span key={tag} className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100 font-medium">#{tag}</span>))}</div>
-            )}
-          </div>
-          <div className="flex gap-3 mb-8">
-            <button onClick={handleDownload} className="btn-primary flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold shadow-lg"><Download size={18} /> Download Material</button>
-            <button onClick={() => showToast("Link copied to clipboard!", "info")} className="px-4 py-3.5 rounded-xl border border-blue-200 text-blue-700 hover:bg-blue-50 transition-all" title="Share"><Share2 size={18} /></button>
-            <button onClick={handleReport} className="px-4 py-3.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-all" title="Report"><Flag size={18} /></button>
-          </div>
-          {related.length > 0 && (
-            <div><h2 className="text-xl font-extrabold text-slate-900 heading-font mb-5">Related Materials</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{related.map((m) => (<MaterialCard key={m.id} material={m} compact />))}</div>
-            </div>
-          )}
-        </div>
-        <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-blue-50 shadow-sm p-5">
-            <h3 className="font-bold text-slate-800 heading-font mb-4">Material Details</h3>
-            <ul className="space-y-3.5">
-              {[{ icon: BookOpen, label: "Subject", value: subjectName }, { icon: User, label: "Course", value: material.course }, { icon: BookOpen, label: "Semester", value: material.semester }, { icon: User, label: "Uploaded By", value: authorName }, { icon: Calendar, label: "Upload Date", value: uploadDate }, { icon: FileType, label: "Material Type", value: typeName }, { icon: HardDrive, label: "File Size", value: formattedSize }, { icon: Download, label: "Downloads", value: material.downloads.toLocaleString() }].map(({ icon: Icon, label, value }) => (
-                <li key={label} className="flex items-start gap-3"><div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center shrink-0 mt-0.5"><Icon size={13} className="text-blue-600" /></div><div><div className="text-xs text-slate-500 font-medium">{label}</div><div className="text-sm text-slate-800 font-semibold">{value}</div></div></li>
-              ))}
-            </ul>
-          </div>
-          <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-5 text-white">
-            <h3 className="font-bold heading-font mb-2">Found this helpful?</h3>
-            <p className="text-blue-200 text-sm mb-4">Share your own notes and help fellow students succeed.</p>
-            <button onClick={() => navigateTo("/upload")} className="w-full bg-white text-blue-700 rounded-xl py-2.5 font-semibold text-sm hover:bg-blue-50 transition-all">Upload Your Notes</button>
-          </div>
-          <div className="bg-white rounded-2xl border border-blue-50 shadow-sm p-5">
-            <h3 className="font-bold text-slate-800 heading-font mb-3">Rate this Material</h3>
-            <div className="flex gap-2 mb-3">{[1,2,3,4,5].map((i) => (<button key={i} className="text-2xl hover:scale-110 transition-transform">{i <= Math.round(material.rating) ? "⭐" : "☆"}</button>))}</div>
-            <textarea placeholder="Write a short review..." rows={3} className="w-full text-sm border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none text-slate-700" />
-            <button onClick={() => showToast("Review submitted! Thank you.")} className="mt-2 w-full btn-primary py-2.5 rounded-xl font-semibold text-sm">Submit Review</button>
           </div>
         </div>
       </div>
-    </div>
+      <PDFPreviewModal
+        material={material}
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+      />
+    </>
   );
 }

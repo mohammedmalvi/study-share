@@ -6,6 +6,7 @@ import MaterialCard from "@/components/MaterialCard";
 import { fetchMaterials } from "@/lib/supabase/materials";
 import { fetchSubjects } from "@/lib/supabase/subjects";
 import { fetchCategories } from "@/lib/supabase/categories";
+import { supabase } from "@/lib/supabase/client";
 import type { Material, Subject, Category } from "@/types/database";
 
 const COURSES = ["All Courses", "BCA", "MCA", "BSc CS", "BTech"];
@@ -64,8 +65,39 @@ export default function StudyMaterialsPage() {
     const timer = setTimeout(() => {
       loadMaterials();
     }, 300);
-    
-    return () => clearTimeout(timer);
+
+    // Supabase Real-time: handle DELETE immediately, re-fetch on INSERT/UPDATE
+    let channel: any;
+    if (supabase) {
+      channel = supabase
+        .channel('materials_list')
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'materials' },
+          (payload: any) => {
+            const deletedId = payload.old?.id;
+            if (deletedId) {
+              setMaterials((prev) => prev.filter((m) => m.id !== deletedId));
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'materials' },
+          () => { loadMaterials(); }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'materials' },
+          () => { loadMaterials(); }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      clearTimeout(timer);
+      if (supabase && channel) supabase.removeChannel(channel);
+    };
   }, [search, course, semester, subjectId, categoryId, sort]);
 
   const paginated = materials.slice(0, page * PER_PAGE);

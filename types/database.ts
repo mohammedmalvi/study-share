@@ -19,6 +19,7 @@ export interface Material {
   semester: string;
   file_type: string;
   file_url: string;
+  file_path?: string;
   file_size: string | number;
   rating: number;
   downloads: number;

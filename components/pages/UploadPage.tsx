@@ -38,6 +38,13 @@ export default function UploadPage() {
     loadData();
   }, []);
 
+  // Auth guard: redirect to login if not authenticated
+  useEffect(() => {
+    if (!user) {
+      navigateTo("/login");
+    }
+  }, [user, navigateTo]);
+
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setForm((f) => ({ ...f, [field]: e.target.value })); setErrors((e2) => ({ ...e2, [field]: "" })); };
 
   const validate = () => {

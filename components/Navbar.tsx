@@ -46,8 +46,11 @@ export default function Navbar() {
             </div>
           </button>
           <div className="hidden md:flex items-center gap-1">
-            {NAV_LINKS.map((link) => (
-              <button key={link.href} onClick={() => navigateTo(link.href)}
+          {NAV_LINKS.map((link) => (
+              <button key={link.href} onClick={() => {
+                if (link.href === "/upload" && !user) { navigateTo("/login"); return; }
+                navigateTo(link.href);
+              }}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${pathname === link.href ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:text-blue-700 hover:bg-blue-50"}`}>
                 {link.label}
               </button>
@@ -89,7 +92,10 @@ export default function Navbar() {
         <div className="md:hidden border-t border-blue-100 bg-white animate-slide-down">
           <div className="px-4 py-3 space-y-1">
             {NAV_LINKS.map((link) => (
-              <button key={link.href} onClick={() => { navigateTo(link.href); setMobileOpen(false); }}
+              <button key={link.href} onClick={() => {
+                if (link.href === "/upload" && !user) { navigateTo("/login"); setMobileOpen(false); return; }
+                navigateTo(link.href); setMobileOpen(false);
+              }}
                 className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${pathname === link.href ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"}`}>
                 {link.label}
               </button>

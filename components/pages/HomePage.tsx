@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, ArrowRight, Star, TrendingUp, Users, BookOpen, Download } from "lucide-react";
+import { Search, ArrowRight, Star, BookOpen } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import MaterialCard from "@/components/MaterialCard";
+import HeroCloudAnimation from "@/components/HeroCloudAnimation";
 import { TESTIMONIALS, STATS, HOW_IT_WORKS, WHY_CHOOSE } from "@/data/mockData";
 import { fetchMaterials } from "@/lib/supabase/materials";
 import { fetchCategories } from "@/lib/supabase/categories";
@@ -11,7 +12,7 @@ import { supabase } from "@/lib/supabase/client";
 import type { Material, Category } from "@/types/database";
 
 export default function HomePage() {
-  const { navigateTo } = useApp();
+  const { navigateTo, user } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
   const [featured, setFeatured] = useState<Material[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -35,10 +36,33 @@ export default function HomePage() {
 
     let channel: any;
     if (supabase) {
-      channel = supabase.channel('homepage_materials')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'materials' }, () => {
-          loadData(); // Re-fetch on any change
-        })
+      channel = supabase
+        .channel('homepage_materials')
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'materials' },
+          (payload: any) => {
+            // Immediately remove deleted item from state — no refetch required
+            const deletedId = payload.old?.id;
+            if (deletedId) {
+              setFeatured((prev) => prev.filter((m) => m.id !== deletedId));
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'materials' },
+          () => {
+            if (isMounted) loadData();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'materials' },
+          () => {
+            if (isMounted) loadData();
+          }
+        )
         .subscribe();
     }
 
@@ -63,9 +87,6 @@ export default function HomePage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <div className="inline-flex items-center gap-2 bg-white/80 border border-blue-100 rounded-full px-4 py-1.5 text-xs font-semibold text-blue-700 mb-6 shadow-sm">
-                <TrendingUp size={12} /><span>1,200+ Study Materials Available</span>
-              </div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight mb-6 heading-font">
                 Share Knowledge.<br /><span className="text-blue-600">Study Smarter.</span>
               </h1>
@@ -76,7 +97,13 @@ export default function HomePage() {
                 <button onClick={() => navigateTo("/materials")} className="btn-primary flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-base shadow-lg">
                   Explore Study Materials <ArrowRight size={18} />
                 </button>
-                <button onClick={() => navigateTo("/upload")} className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-base bg-white text-blue-700 border border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-all shadow-sm">
+                <button
+                  onClick={() => {
+                    if (!user) { navigateTo("/login"); return; }
+                    navigateTo("/upload");
+                  }}
+                  className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-base bg-white text-blue-700 border border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-all shadow-sm"
+                >
                   <BookOpen size={18} /> Upload Material
                 </button>
               </div>
@@ -90,21 +117,9 @@ export default function HomePage() {
               </div>
             </div>
             <div className="hidden lg:block relative">
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-blue-100">
-                <img src="https://images.unsplash.com/photo-1758270705290-62b6294dd044?w=700&h=500&fit=crop&auto=format" alt="Diverse group of students gathered around laptop studying together" className="w-full h-[420px] object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-blue-900/20 to-transparent" />
-              </div>
-              <div className="absolute -left-6 top-8 bg-white rounded-2xl shadow-xl p-3 flex items-center gap-2.5 animate-fade-in">
-                <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center"><Download size={16} className="text-emerald-600" /></div>
-                <div><div className="text-xs font-bold text-slate-800">15,000+</div><div className="text-[10px] text-slate-500">Downloads</div></div>
-              </div>
-              <div className="absolute -right-4 bottom-12 bg-white rounded-2xl shadow-xl p-3 flex items-center gap-2.5">
-                <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center"><Star size={16} className="text-amber-500" fill="currentColor" /></div>
-                <div><div className="text-xs font-bold text-slate-800">4.8 / 5.0</div><div className="text-[10px] text-slate-500">Avg Rating</div></div>
-              </div>
-              <div className="absolute left-6 -bottom-4 bg-white rounded-2xl shadow-xl p-3 flex items-center gap-2.5">
-                <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center"><Users size={16} className="text-blue-600" /></div>
-                <div><div className="text-xs font-bold text-slate-800">850+ Students</div><div className="text-[10px] text-slate-500">Active this month</div></div>
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-slate-50 to-blue-50">
+                <HeroCloudAnimation />
+                <div className="absolute inset-0 bg-gradient-to-t from-blue-900/10 to-transparent pointer-events-none" />
               </div>
             </div>
           </div>

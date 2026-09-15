@@ -218,7 +218,7 @@ export default function HeroCloudAnimation() {
     <div className="relative w-full h-full select-none" style={{ minHeight: "420px" }}>
       {/* Base static cloud network image */}
       <img
-        src="/hero-cloud.png"
+        src="/assets/cloud-hero.png"
         alt="Cloud-based study material ecosystem — files and folders flowing into a central cloud"
         className="w-full h-[420px] object-cover object-center"
         style={{ display: "block" }}

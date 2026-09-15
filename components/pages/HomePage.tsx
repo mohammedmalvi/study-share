@@ -85,7 +85,7 @@ export default function HomePage() {
         <div className="absolute inset-0 hero-gradient" />
         <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 20% 80%, rgba(37,99,235,0.12) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(99,179,237,0.15) 0%, transparent 50%)" }} />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 gap-12">
             <div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight mb-6 heading-font">
                 Share Knowledge.<br /><span className="text-blue-600">Study Smarter.</span>
@@ -107,14 +107,6 @@ export default function HomePage() {
                   <BookOpen size={18} /> Upload Material
                 </button>
               </div>
-
-            </div>
-            <div className="hidden lg:flex items-center justify-center">
-              <img
-                src="/assets/cloud-hero.png"
-                alt="StudyShare Cloud Storage"
-                className="w-full h-auto max-w-xl rounded-2xl shadow-lg object-cover"
-              />
             </div>
           </div>
         </div>

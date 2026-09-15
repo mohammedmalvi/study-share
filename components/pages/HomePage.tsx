@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Search, ArrowRight, Star, BookOpen } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import MaterialCard from "@/components/MaterialCard";
-import HeroCloudAnimation from "@/components/HeroCloudAnimation";
+
 import { TESTIMONIALS, STATS, HOW_IT_WORKS, WHY_CHOOSE } from "@/data/mockData";
 import { fetchMaterials } from "@/lib/supabase/materials";
 import { fetchCategories } from "@/lib/supabase/categories";
@@ -107,20 +107,14 @@ export default function HomePage() {
                   <BookOpen size={18} /> Upload Material
                 </button>
               </div>
-              <div className="flex items-center gap-6 mt-8">
-                {STATS.slice(0, 3).map((stat) => (
-                  <div key={stat.label} className="text-center">
-                    <div className="text-xl font-extrabold text-blue-700 heading-font">{stat.value}</div>
-                    <div className="text-xs text-slate-500">{stat.label}</div>
-                  </div>
-                ))}
-              </div>
+
             </div>
-            <div className="hidden lg:block relative">
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-slate-50 to-blue-50">
-                <HeroCloudAnimation />
-                <div className="absolute inset-0 bg-gradient-to-t from-blue-900/10 to-transparent pointer-events-none" />
-              </div>
+            <div className="hidden lg:flex items-center justify-center">
+              <img
+                src="/hero-cloud.png"
+                alt="StudyShare Cloud Storage"
+                className="w-full h-auto max-w-xl rounded-2xl shadow-lg object-cover"
+              />
             </div>
           </div>
         </div>
